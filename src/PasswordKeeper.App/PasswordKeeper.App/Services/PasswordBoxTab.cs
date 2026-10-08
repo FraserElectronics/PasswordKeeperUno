@@ -4,8 +4,8 @@ using Windows.System;
 namespace PasswordKeeper.App.Services;
 
 /// <summary>
-/// Uno's PasswordBox on macOS types Tab into the password as a character. Make Tab / Shift+Tab move
-/// focus instead, like a normal Windows/macOS form field.
+/// Uno's PasswordBox on macOS types Tab into the password as a character. Make Tab move
+/// focus to the next field instead, like a normal Windows/macOS form field.
 /// </summary>
 public static class PasswordBoxTab
 {
@@ -15,8 +15,6 @@ public static class PasswordBoxTab
     {
         if (e.Key != VirtualKey.Tab) return;
         e.Handled = true;
-        var shift = (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
-                     & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
-        FocusManager.TryMoveFocus(shift ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next);
+        FocusManager.TryMoveFocus(FocusNavigationDirection.Next);
     }
 }
