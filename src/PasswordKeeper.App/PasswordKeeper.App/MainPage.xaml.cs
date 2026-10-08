@@ -25,6 +25,8 @@ public sealed partial class MainPage : Page
         AddHandler(KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => ResetIdle()), true);
 
         ShowUnlock();
+        // Without explicit focus the first keystrokes have no target, which makes macOS beep.
+        Loaded += (_, _) => MasterBox.Focus(FocusState.Programmatic);
     }
 
     // ---- Unlock / lock -------------------------------------------------------------------
@@ -44,6 +46,7 @@ public sealed partial class MainPage : Page
             ? $"No vault found. Choose a master password of at least {MinMasterLength} characters. " +
               "It cannot be recovered if you forget it."
             : "Enter your master password.";
+        MasterBox.Focus(FocusState.Programmatic);
     }
 
     private void OnShowMasterChanged(object sender, RoutedEventArgs e)
