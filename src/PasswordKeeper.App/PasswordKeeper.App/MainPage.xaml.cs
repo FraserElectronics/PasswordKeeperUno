@@ -26,8 +26,8 @@ public sealed partial class MainPage : Page
         AddHandler(PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ResetIdle()), true);
         AddHandler(KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => ResetIdle()), true);
 
-        foreach (var field in new UIElement[] { MasterBox, ConfirmBox, PassBox, TitleBox, UrlBox, UserBox, NotesBox, SearchBox })
-            PasswordBoxTab.Attach(field);
+        PasswordBoxTab.AttachChain(MasterBox, ConfirmBox, ShowMasterCheck, UnlockButton);
+        PasswordBoxTab.AttachChain(SearchBox, EntryList, TitleBox, UrlBox, UserBox, PassBox, NotesBox, SaveButton);
 
         ShowUnlock();
         // Without explicit focus the first keystrokes have no target, which makes macOS beep.
@@ -401,8 +401,7 @@ public sealed partial class MainPage : Page
         var current = new PasswordBox { Header = "Current master password" };
         var next = new PasswordBox { Header = $"New master password (at least {MinMasterLength} characters)" };
         var confirm = new PasswordBox { Header = "Confirm new master password" };
-        foreach (var box in new[] { current, next, confirm }) PasswordBoxTab.Attach(box);
-        var show = new CheckBox { Content = "Show passwords" };
+                var show = new CheckBox { Content = "Show passwords" };
         var counts = new TextBlock { Opacity = 0.7 };
         void Refresh(object? s, RoutedEventArgs? a)
         {
@@ -411,6 +410,7 @@ public sealed partial class MainPage : Page
             counts.Text = $"New: {next.Password.Length} characters, confirm: {confirm.Password.Length}. " +
                           (confirm.Password.Length == 0 ? "" : next.Password == confirm.Password ? "Match." : "Not matching yet.");
         }
+        PasswordBoxTab.AttachChain(current, next, confirm, show);
         show.Checked += Refresh;
         show.Unchecked += Refresh;
         next.PasswordChanged += Refresh;
