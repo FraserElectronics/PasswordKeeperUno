@@ -14,6 +14,11 @@ Use `iossimulator-x64` on an Intel Mac. The vault is stored inside the app's own
 ## Layout
 Below 700 px wide the app shows one pane at a time (entry list, then the editor with an "All entries" back button).
 
+## Getting your vault onto the phone
+Copy the `.pkv` file to the phone (AirDrop, iCloud Drive, or email it to yourself), then in the app tap
+"Open vault..." and choose it. The app keeps its own private copy, so changes made on the phone and on
+the Mac are not merged until cloud sync is added.
+
 ## Not done yet
 Face ID / Touch ID, signing for a real device, and moving the vault file in and out of the phone
 (Files app / iCloud / Backblaze) still need work.

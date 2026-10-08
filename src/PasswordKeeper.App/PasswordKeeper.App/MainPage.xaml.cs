@@ -27,6 +27,10 @@ public sealed partial class MainPage : Page
         AddHandler(PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ResetIdle()), true);
         AddHandler(KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => ResetIdle()), true);
 
+#if __IOS__ || __ANDROID__
+        // Leave room beneath the card so it can scroll clear of the on-screen keyboard.
+        UnlockCard.Margin = new Thickness(16, 16, 16, 340);
+#endif
         PasswordBoxTab.AttachChain(MasterBox, ConfirmBox, ShowMasterCheck, UnlockButton);
         PasswordBoxTab.AttachChain(SearchBox, EntryList, TitleBox, UrlBox, UserBox, PassBox, NotesBox, SaveButton);
 
@@ -76,8 +80,28 @@ public sealed partial class MainPage : Page
     {
         var picker = new FileOpenPicker();
         picker.FileTypeFilter.Add(".pkv");
+#if __IOS__ || __ANDROID__
+        picker.FileTypeFilter.Add("*"); // phones don't know the .pkv type, so let any file be chosen
+#endif
         var file = await picker.PickSingleFileAsync();
-        if (file is not null) UseVaultPath(file.Path);
+        if (file is null) return;
+
+#if __IOS__ || __ANDROID__
+        // Phones can't keep using a file outside the app's sandbox, so work on a private copy.
+        try
+        {
+            var dir = Path.GetDirectoryName(VaultSession.DefaultPath())!;
+            var target = Path.Combine(dir, "imported-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".pkv");
+            File.Copy(file.Path, target, overwrite: false);
+            UseVaultPath(target);
+        }
+        catch (Exception ex)
+        {
+            UnlockError.Text = "Could not import that file: " + ex.Message;
+        }
+#else
+        UseVaultPath(file.Path);
+#endif
     }
 
     private async void OnNewVaultClick(object sender, RoutedEventArgs e)

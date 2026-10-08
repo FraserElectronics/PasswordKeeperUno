@@ -14,7 +14,7 @@
       </Grid.Background>
 
       <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Border MaxWidth="380" Padding="28" CornerRadius="16" Margin="16"
+        <Border x:Name="UnlockCard" MaxWidth="380" Padding="28" CornerRadius="16" Margin="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Center"
                 Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
           <StackPanel Spacing="12">
