@@ -21,6 +21,7 @@ public sealed partial class MainPage : Page
     {
         this.InitializeComponent();
 
+        VaultPanel.SizeChanged += (_, _) => ApplyLayout();
         _idleTimer.Tick += (_, _) => LockVault();
         // Any interaction postpones the auto-lock.
         AddHandler(PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ResetIdle()), true);
@@ -200,6 +201,38 @@ public sealed partial class MainPage : Page
         LoadEditor(entry);
     }
 
+    // ---- Layout (side by side on desktop, one pane at a time on a phone) ------------------
+
+    private bool IsNarrow => VaultPanel.ActualWidth > 0 && VaultPanel.ActualWidth < 700;
+
+    private void ApplyLayout()
+    {
+        var cols = VaultPanel.ColumnDefinitions;
+        var star = new GridLength(1, GridUnitType.Star);
+        BackButton.Visibility = IsNarrow && _current is not null ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!IsNarrow)
+        {
+            cols[0].Width = new GridLength(300);
+            cols[1].Width = star;
+            ListPane.Visibility = EditorScroll.Visibility = Visibility.Visible;
+            return;
+        }
+
+        var showEditor = _current is not null;
+        cols[0].Width = showEditor ? new GridLength(0) : star;
+        cols[1].Width = showEditor ? star : new GridLength(0);
+        ListPane.Visibility = showEditor ? Visibility.Collapsed : Visibility.Visible;
+        EditorScroll.Visibility = showEditor ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnBackClick(object sender, RoutedEventArgs e)
+    {
+        await FlushEditAsync();
+        EntryList.SelectedItem = null;
+        ClearEditor();
+    }
+
     // ---- Editor --------------------------------------------------------------------------
 
     private void LoadEditor(VaultEntry entry)
@@ -216,6 +249,7 @@ public sealed partial class MainPage : Page
         _loadingEditor = false;
         _dirty = false;
         UpdateHealth();
+        ApplyLayout();
     }
 
     private void ClearEditor()
@@ -229,6 +263,7 @@ public sealed partial class MainPage : Page
         _loadingEditor = false;
         _dirty = false;
         UpdateHealth();
+        ApplyLayout();
     }
 
     private async void OnNewClick(object sender, RoutedEventArgs e)

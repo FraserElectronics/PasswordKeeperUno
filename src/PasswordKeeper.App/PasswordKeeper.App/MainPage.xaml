@@ -14,8 +14,8 @@
       </Grid.Background>
 
       <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Border Width="380" Padding="28" CornerRadius="16" Margin="16"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
+        <Border MaxWidth="380" Padding="28" CornerRadius="16" Margin="16"
+                HorizontalAlignment="Stretch" VerticalAlignment="Center"
                 Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
           <StackPanel Spacing="12">
             <!-- Shield logo -->
@@ -73,7 +73,7 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <Grid RowSpacing="8">
+      <Grid x:Name="ListPane" RowSpacing="8">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
@@ -148,8 +148,14 @@
         </StackPanel>
       </Grid>
 
-      <ScrollViewer Grid.Column="1">
+      <ScrollViewer x:Name="EditorScroll" Grid.Column="1">
         <StackPanel x:Name="EditorPanel" Spacing="10">
+          <Button x:Name="BackButton" Visibility="Collapsed" Click="OnBackClick">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <SymbolIcon Symbol="Back" />
+              <TextBlock Text="All entries" />
+            </StackPanel>
+          </Button>
           <TextBox x:Name="TitleBox" TextChanged="OnEditorChanged" Header="Title" />
           <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>
