@@ -46,6 +46,22 @@ public sealed partial class MainPage : Page
             : "Enter your master password.";
     }
 
+    private void OnShowMasterChanged(object sender, RoutedEventArgs e)
+    {
+        var mode = ShowMasterCheck.IsChecked == true ? PasswordRevealMode.Visible : PasswordRevealMode.Hidden;
+        MasterBox.PasswordRevealMode = mode;
+        ConfirmBox.PasswordRevealMode = mode;
+    }
+
+    private void OnMasterChanged(object sender, RoutedEventArgs e)
+    {
+        if (ConfirmBox.Visibility != Visibility.Visible) { MatchText.Text = ""; return; }
+        var a = MasterBox.Password;
+        var b = ConfirmBox.Password;
+        MatchText.Text = $"{a.Length} / {b.Length} characters. " +
+                         (b.Length == 0 ? "" : a == b ? "Match." : "Not matching yet.");
+    }
+
     private void OnMasterKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter) OnUnlockClick(sender, e);

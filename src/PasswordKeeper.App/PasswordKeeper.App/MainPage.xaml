@@ -9,8 +9,10 @@
                 HorizontalAlignment="Center" VerticalAlignment="Center">
       <TextBlock Text="PasswordKeeper" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
       <TextBlock x:Name="UnlockHint" TextWrapping="Wrap" />
-      <PasswordBox x:Name="MasterBox" PlaceholderText="Master password" KeyDown="OnMasterKeyDown" />
-      <PasswordBox x:Name="ConfirmBox" PlaceholderText="Confirm master password" Visibility="Collapsed" KeyDown="OnMasterKeyDown" />
+      <PasswordBox x:Name="MasterBox" PlaceholderText="Master password" PasswordChanged="OnMasterChanged" KeyDown="OnMasterKeyDown" />
+      <PasswordBox x:Name="ConfirmBox" PlaceholderText="Confirm master password" Visibility="Collapsed" PasswordChanged="OnMasterChanged" KeyDown="OnMasterKeyDown" />
+      <CheckBox x:Name="ShowMasterCheck" Content="Show password" Checked="OnShowMasterChanged" Unchecked="OnShowMasterChanged" />
+      <TextBlock x:Name="MatchText" Opacity="0.7" />
       <Button x:Name="UnlockButton" Content="Unlock" HorizontalAlignment="Stretch" Click="OnUnlockClick" />
       <TextBlock x:Name="UnlockError" Foreground="Red" TextWrapping="Wrap" />
     </StackPanel>
