@@ -45,7 +45,7 @@ public sealed partial class MainPage : Page
         PathText.Text = _session.Path;
         var creating = !_session.FileExists;
         ConfirmBox.Visibility = creating ? Visibility.Visible : Visibility.Collapsed;
-        UnlockButton.Content = creating ? "Create vault" : "Unlock";
+        UnlockButtonText.Text = creating ? "Create vault" : "Unlock";
         UnlockHint.Text = creating
             ? $"No vault found. Choose a master password of at least {MinMasterLength} characters. " +
               "It cannot be recovered if you forget it."
