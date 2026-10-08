@@ -32,8 +32,6 @@ public static class VaultFile
     private const int KeySize = 32;
     private const int HeaderSize = 4 + 1 + 4 + 4 + 4 + SaltSize + NonceSize;
 
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
-
     /// <summary>Encrypts <paramref name="data"/> into a vault file image.</summary>
     public static byte[] Seal(VaultData data, string masterPassword, KdfParameters? kdf = null)
     {
@@ -50,7 +48,7 @@ public static class VaultFile
         RandomNumberGenerator.Fill(header.AsSpan(17, SaltSize));
         RandomNumberGenerator.Fill(header.AsSpan(17 + SaltSize, NonceSize));
 
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(data, Json);
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(data, VaultJsonContext.Default.VaultData);
         var key = DeriveKey(masterPassword, header.AsSpan(17, SaltSize), p);
         try
         {
@@ -99,7 +97,7 @@ public static class VaultFile
         {
             using var aes = new AesGcm(key, TagSize);
             aes.Decrypt(header.Slice(17 + SaltSize, NonceSize), ciphertext, tag, plaintext, header);
-            return JsonSerializer.Deserialize<VaultData>(plaintext, Json)
+            return JsonSerializer.Deserialize(plaintext, VaultJsonContext.Default.VaultData)
                    ?? throw new InvalidVaultFormatException("Vault payload is empty.");
         }
         catch (CryptographicException)

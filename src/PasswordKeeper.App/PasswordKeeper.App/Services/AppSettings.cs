@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PasswordKeeper.App.Services;
 
@@ -15,7 +16,7 @@ public sealed class AppSettings
         try
         {
             return File.Exists(FilePath)
-                ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new()
+                ? JsonSerializer.Deserialize(File.ReadAllText(FilePath), AppSettingsJson.Default.AppSettings) ?? new()
                 : new();
         }
         catch
@@ -27,6 +28,11 @@ public sealed class AppSettings
     public void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(this));
+        File.WriteAllText(FilePath, JsonSerializer.Serialize(this, AppSettingsJson.Default.AppSettings));
     }
+}
+
+[JsonSerializable(typeof(AppSettings))]
+internal partial class AppSettingsJson : JsonSerializerContext
+{
 }
