@@ -295,11 +295,24 @@ public sealed partial class MainPage : Page
         var current = new PasswordBox { Header = "Current master password" };
         var next = new PasswordBox { Header = $"New master password (at least {MinMasterLength} characters)" };
         var confirm = new PasswordBox { Header = "Confirm new master password" };
+        var show = new CheckBox { Content = "Show passwords" };
+        var counts = new TextBlock { Opacity = 0.7 };
+        void Refresh(object? s, RoutedEventArgs? a)
+        {
+            var mode = show.IsChecked == true ? PasswordRevealMode.Visible : PasswordRevealMode.Hidden;
+            current.PasswordRevealMode = next.PasswordRevealMode = confirm.PasswordRevealMode = mode;
+            counts.Text = $"New: {next.Password.Length} characters, confirm: {confirm.Password.Length}. " +
+                          (confirm.Password.Length == 0 ? "" : next.Password == confirm.Password ? "Match." : "Not matching yet.");
+        }
+        show.Checked += Refresh;
+        show.Unchecked += Refresh;
+        next.PasswordChanged += Refresh;
+        confirm.PasswordChanged += Refresh;
         var error = new TextBlock { Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red), TextWrapping = TextWrapping.Wrap };
         var dialog = new ContentDialog
         {
             Title = "Change master password",
-            Content = new StackPanel { Spacing = 8, Children = { current, next, confirm, error } },
+            Content = new StackPanel { Spacing = 8, Children = { current, next, confirm, show, counts, error } },
             PrimaryButtonText = "Change",
             CloseButtonText = "Cancel",
             XamlRoot = XamlRoot,
@@ -332,8 +345,13 @@ public sealed partial class MainPage : Page
         try
         {
             var imported = CsvTransfer.Import(await File.ReadAllTextAsync(file.Path));
-            _session.Data!.Entries.AddRange(imported);
-            await SaveVaultAsync($"Imported {imported.Count} entries. Delete the CSV file now: it holds your passwords in plain text.");
+            // Skip rows identical to an entry already in the vault so re-importing doesn't duplicate.
+            static string Key(VaultEntry v) => string.Join('\u001f', v.Title, v.Url, v.Username, v.Password, v.Notes);
+            var existing = _session.Data!.Entries.Select(Key).ToHashSet();
+            var fresh = imported.Where(v => existing.Add(Key(v))).ToList();
+            _session.Data.Entries.AddRange(fresh);
+            await SaveVaultAsync($"Imported {fresh.Count} entries, skipped {imported.Count - fresh.Count} duplicates. " +
+                                 "Delete the CSV file now: it holds your passwords in plain text.");
             RefreshList();
         }
         catch (Exception ex)

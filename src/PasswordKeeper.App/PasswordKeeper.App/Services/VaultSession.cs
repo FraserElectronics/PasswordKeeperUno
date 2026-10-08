@@ -66,7 +66,18 @@ public sealed class VaultSession
         return Task.Run(() =>
         {
             BackupIfDue();
+            // Keep the previous file until the new one is proven to open with the new password.
+            var previous = File.ReadAllBytes(Path);
             VaultFile.Save(Path, data, next);
+            try
+            {
+                VaultFile.Load(Path, next);
+            }
+            catch
+            {
+                File.WriteAllBytes(Path, previous);
+                throw new InvalidOperationException("Could not verify the new password; the old one is still in place.");
+            }
             _masterPassword = next;
         });
     }
