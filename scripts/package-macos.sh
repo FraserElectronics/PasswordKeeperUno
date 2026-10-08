@@ -10,7 +10,7 @@ OUT="$ROOT/artifacts/macos-$RID"
 APP="$OUT/PasswordKeeper.app"
 
 rm -rf "$OUT"
-dotnet publish "$PROJ" -c Release -p:TargetFrameworks=net10.0-desktop -r "$RID" --self-contained true -o "$OUT/publish"
+dotnet publish "$PROJ" -c Release -p:OnlyTargetDesktop=true -f net10.0-desktop -r "$RID" --self-contained true -o "$OUT/publish"
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp -R "$OUT/publish/." "$APP/Contents/MacOS/"
