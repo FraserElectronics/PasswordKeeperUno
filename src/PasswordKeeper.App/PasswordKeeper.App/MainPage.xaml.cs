@@ -26,7 +26,8 @@ public sealed partial class MainPage : Page
         AddHandler(PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ResetIdle()), true);
         AddHandler(KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => ResetIdle()), true);
 
-        foreach (var box in new[] { MasterBox, ConfirmBox, PassBox }) PasswordBoxTab.Attach(box);
+        foreach (var field in new UIElement[] { MasterBox, ConfirmBox, PassBox, TitleBox, UrlBox, UserBox, NotesBox, SearchBox })
+            PasswordBoxTab.Attach(field);
 
         ShowUnlock();
         // Without explicit focus the first keystrokes have no target, which makes macOS beep.
