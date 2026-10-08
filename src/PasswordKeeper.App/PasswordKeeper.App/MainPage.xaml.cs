@@ -273,14 +273,16 @@ public sealed partial class MainPage : Page
     {
         var password = PassBox.Password;
         var level = PasswordStrength.Evaluate(password);
-        (StrengthText.Text, StrengthText.Foreground) = level switch
+        var (label, color) = level switch
         {
-            PasswordStrengthLevel.Weak => ("Strength: weak", new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)),
-            PasswordStrengthLevel.Fair => ("Strength: fair", new SolidColorBrush(Microsoft.UI.Colors.Orange)),
-            PasswordStrengthLevel.Good => ("Strength: good", new SolidColorBrush(Microsoft.UI.Colors.YellowGreen)),
-            PasswordStrengthLevel.Strong => ("Strength: strong", new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)),
-            _ => ("", StrengthText.Foreground),
+            PasswordStrengthLevel.Weak => ("Strength: weak", Microsoft.UI.Colors.OrangeRed),
+            PasswordStrengthLevel.Fair => ("Strength: fair", Microsoft.UI.Colors.Orange),
+            PasswordStrengthLevel.Good => ("Strength: good", Microsoft.UI.Colors.YellowGreen),
+            PasswordStrengthLevel.Strong => ("Strength: strong", Microsoft.UI.Colors.LimeGreen),
+            _ => ("", Microsoft.UI.Colors.Gray),
         };
+        StrengthText.Text = label;
+        StrengthText.Foreground = new SolidColorBrush(color);
 
         var shared = _current is null || !_session.IsUnlocked
             ? new List<VaultEntry>()
