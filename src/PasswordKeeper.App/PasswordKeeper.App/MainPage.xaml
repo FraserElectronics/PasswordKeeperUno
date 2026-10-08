@@ -197,6 +197,8 @@
               </StackPanel>
             </Button>
           </Grid>
+          <TextBlock x:Name="StrengthText" FontSize="12" />
+          <TextBlock x:Name="ReuseText" FontSize="12" TextWrapping="Wrap" Foreground="Orange" />
           <TextBox x:Name="NotesBox" TextChanged="OnEditorChanged" Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Button x:Name="SaveButton" Click="OnSaveClick">
@@ -207,6 +209,12 @@
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <SymbolIcon Symbol="Save" />
                 <TextBlock Text="Save" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="HistoryButton" Click="OnHistoryClick">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <SymbolIcon Symbol="Clock" />
+                <TextBlock Text="History..." />
               </StackPanel>
             </Button>
             <Button x:Name="DeleteButton" Click="OnDeleteClick">

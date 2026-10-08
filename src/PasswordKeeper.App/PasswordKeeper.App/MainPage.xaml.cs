@@ -215,6 +215,7 @@ public sealed partial class MainPage : Page
         EditorPanel.Visibility = Visibility.Visible;
         _loadingEditor = false;
         _dirty = false;
+        UpdateHealth();
     }
 
     private void ClearEditor()
@@ -227,6 +228,7 @@ public sealed partial class MainPage : Page
         EditorPanel.Visibility = Visibility.Collapsed;
         _loadingEditor = false;
         _dirty = false;
+        UpdateHealth();
     }
 
     private async void OnNewClick(object sender, RoutedEventArgs e)
@@ -254,14 +256,87 @@ public sealed partial class MainPage : Page
         _current.Title = TitleBox.Text.Trim();
         _current.Url = UrlBox.Text.Trim();
         _current.Username = UserBox.Text;
-        _current.Password = PassBox.Password;
+        _current.SetPassword(PassBox.Password);
         _current.Notes = NotesBox.Text;
         _current.ModifiedUtc = DateTimeOffset.UtcNow;
         _dirty = false;
     }
 
     private void OnEditorChanged(object sender, TextChangedEventArgs e) => UpdateDirty();
-    private void OnEditorPasswordChanged(object sender, RoutedEventArgs e) => UpdateDirty();
+    private void OnEditorPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        UpdateDirty();
+        UpdateHealth();
+    }
+
+    private void UpdateHealth()
+    {
+        var password = PassBox.Password;
+        var level = PasswordStrength.Evaluate(password);
+        (StrengthText.Text, StrengthText.Foreground) = level switch
+        {
+            PasswordStrengthLevel.Weak => ("Strength: weak", new SolidColorBrush(Microsoft.UI.Colors.OrangeRed)),
+            PasswordStrengthLevel.Fair => ("Strength: fair", new SolidColorBrush(Microsoft.UI.Colors.Orange)),
+            PasswordStrengthLevel.Good => ("Strength: good", new SolidColorBrush(Microsoft.UI.Colors.YellowGreen)),
+            PasswordStrengthLevel.Strong => ("Strength: strong", new SolidColorBrush(Microsoft.UI.Colors.LimeGreen)),
+            _ => ("", StrengthText.Foreground),
+        };
+
+        var shared = _current is null || !_session.IsUnlocked
+            ? new List<VaultEntry>()
+            : VaultAudit.EntriesSharingPassword(password, _current.Id, _session.Data!.Entries);
+        ReuseText.Text = shared.Count == 0
+            ? ""
+            : "This password is also used by: " + string.Join(", ", shared.Select(e => e.Title));
+    }
+
+    private async void OnHistoryClick(object sender, RoutedEventArgs e)
+    {
+        if (_current is null) return;
+        var items = _current.PasswordHistory;
+        if (items.Count == 0)
+        {
+            StatusText.Text = "No previous passwords for this entry.";
+            return;
+        }
+        var list = new ListView
+        {
+            ItemsSource = items.Select(i =>
+                $"{i.ChangedUtc.ToLocalTime():yyyy-MM-dd HH:mm}    {new string('\u2022', Math.Min(i.Password.Length, 12))}").ToList(),
+            SelectedIndex = 0,
+            MaxHeight = 240,
+        };
+        var dialog = new ContentDialog
+        {
+            Title = "Previous passwords",
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Each line shows when that password was replaced.", TextWrapping = TextWrapping.Wrap },
+                    list,
+                },
+            },
+            PrimaryButtonText = "Restore",
+            SecondaryButtonText = "Copy",
+            CloseButtonText = "Close",
+            XamlRoot = XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        var index = list.SelectedIndex;
+        if (index < 0 || index >= items.Count) return;
+        if (result == ContentDialogResult.Primary)
+        {
+            PassBox.Password = items[index].Password;
+            StatusText.Text = "Restored. Save to keep it.";
+        }
+        else if (result == ContentDialogResult.Secondary)
+        {
+            ClipboardService.CopySensitive(items[index].Password);
+            StatusText.Text = $"Old password copied (clears in {ClipboardService.ClearAfter.TotalSeconds:0}s).";
+        }
+    }
 
     // TextChanged can fire after a programmatic load, so compare with the entry instead of trusting it.
     private void UpdateDirty()
