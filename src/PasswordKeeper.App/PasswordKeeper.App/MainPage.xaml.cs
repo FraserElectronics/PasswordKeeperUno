@@ -287,4 +287,86 @@ public sealed partial class MainPage : Page
         ClipboardService.CopySensitive(PassBox.Password);
         StatusText.Text = $"Password copied (clears in {ClipboardService.ClearAfter.TotalSeconds:0}s).";
     }
+
+    // ---- Master password, import, export -------------------------------------------------
+
+    private async void OnChangeMasterClick(object sender, RoutedEventArgs e)
+    {
+        var current = new PasswordBox { Header = "Current master password" };
+        var next = new PasswordBox { Header = $"New master password (at least {MinMasterLength} characters)" };
+        var confirm = new PasswordBox { Header = "Confirm new master password" };
+        var error = new TextBlock { Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red), TextWrapping = TextWrapping.Wrap };
+        var dialog = new ContentDialog
+        {
+            Title = "Change master password",
+            Content = new StackPanel { Spacing = 8, Children = { current, next, confirm, error } },
+            PrimaryButtonText = "Change",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        dialog.PrimaryButtonClick += async (_, args) =>
+        {
+            var deferral = args.GetDeferral();
+            try
+            {
+                if (next.Password.Length < MinMasterLength)
+                    throw new InvalidOperationException($"Use at least {MinMasterLength} characters.");
+                if (next.Password != confirm.Password)
+                    throw new InvalidOperationException("The new passwords don't match.");
+                await _session.ChangeMasterPasswordAsync(current.Password, next.Password);
+                StatusText.Text = "Master password changed.";
+            }
+            catch (VaultAuthenticationException) { args.Cancel = true; error.Text = "Current master password is wrong."; }
+            catch (InvalidOperationException ex) { args.Cancel = true; error.Text = ex.Message; }
+            finally { deferral.Complete(); }
+        };
+        await dialog.ShowAsync();
+    }
+
+    private async void OnImportClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker();
+        picker.FileTypeFilter.Add(".csv");
+        var file = await picker.PickSingleFileAsync();
+        if (file is null) return;
+        try
+        {
+            var imported = CsvTransfer.Import(await File.ReadAllTextAsync(file.Path));
+            _session.Data!.Entries.AddRange(imported);
+            await SaveVaultAsync($"Imported {imported.Count} entries. Delete the CSV file now: it holds your passwords in plain text.");
+            RefreshList();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Import failed: " + ex.Message;
+        }
+    }
+
+    private async void OnExportClick(object sender, RoutedEventArgs e)
+    {
+        var warn = new ContentDialog
+        {
+            Title = "Export unencrypted CSV?",
+            Content = "The exported file contains ALL your passwords in plain text. Anyone who can read it can use them. " +
+                      "Store it somewhere safe and delete it as soon as you are done.",
+            PrimaryButtonText = "Export",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        if (await warn.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var picker = new FileSavePicker { SuggestedFileName = "passwordkeeper-export" };
+        picker.FileTypeChoices.Add("CSV", new List<string> { ".csv" });
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+        try
+        {
+            await File.WriteAllTextAsync(file.Path, CsvTransfer.Export(_session.Data!.Entries));
+            StatusText.Text = "Exported. Remember to delete the file when finished.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Export failed: " + ex.Message;
+        }
+    }
 }

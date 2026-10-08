@@ -34,12 +34,18 @@
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <TextBox x:Name="SearchBox" PlaceholderText="Search" TextChanged="OnSearchChanged" />
         <ListView x:Name="EntryList" Grid.Row="1" DisplayMemberPath="Title" SelectionChanged="OnEntrySelected" />
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
           <Button Content="New entry" Click="OnNewClick" />
           <Button Content="Lock" Click="OnLockClick" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
+          <Button Content="Master password..." Click="OnChangeMasterClick" />
+          <Button Content="Import CSV..." Click="OnImportClick" />
+          <Button Content="Export CSV..." Click="OnExportClick" />
         </StackPanel>
       </Grid>
 

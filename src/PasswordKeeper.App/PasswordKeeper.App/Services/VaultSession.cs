@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using PasswordKeeper.Core.Vault;
 
 namespace PasswordKeeper.App.Services;
@@ -47,7 +49,46 @@ public sealed class VaultSession
         if (Data is null || _masterPassword is null) throw new InvalidOperationException("Vault is locked.");
         var data = Data;
         var pw = _masterPassword;
-        return Task.Run(() => VaultFile.Save(Path, data, pw));
+        return Task.Run(() =>
+        {
+            BackupIfDue();
+            VaultFile.Save(Path, data, pw);
+        });
+    }
+
+    /// <summary>Re-encrypts the vault under a new master password after verifying the current one.</summary>
+    public Task ChangeMasterPasswordAsync(string current, string next)
+    {
+        if (Data is null || _masterPassword is null) throw new InvalidOperationException("Vault is locked.");
+        if (!CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(current), Encoding.UTF8.GetBytes(_masterPassword)))
+            throw new VaultAuthenticationException();
+        var data = Data;
+        return Task.Run(() =>
+        {
+            BackupIfDue();
+            VaultFile.Save(Path, data, next);
+            _masterPassword = next;
+        });
+    }
+
+    /// <summary>
+    /// Copies the existing (still encrypted) vault into a "backups" folder beside it once per day,
+    /// keeping the newest <see cref="BackupsToKeep"/>. Backups are encrypted with the password in force
+    /// when they were made.
+    /// </summary>
+    private const int BackupsToKeep = 10;
+
+    private void BackupIfDue()
+    {
+        if (!FileExists) return;
+        var dir = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "backups");
+        Directory.CreateDirectory(dir);
+        var name = System.IO.Path.GetFileNameWithoutExtension(Path);
+        var target = System.IO.Path.Combine(dir, $"{name}-{DateTime.UtcNow:yyyyMMdd}.pkv");
+        if (!File.Exists(target)) File.Copy(Path, target);
+
+        foreach (var old in Directory.GetFiles(dir, $"{name}-*.pkv").OrderByDescending(f => f).Skip(BackupsToKeep))
+            File.Delete(old);
     }
 
     public void Lock()
