@@ -15,10 +15,13 @@ public sealed class VaultSession
     public string Path { get; }
     public VaultData? Data { get; private set; }
     public bool IsUnlocked => Data is not null;
-    public bool FileExists => File.Exists(Path);
+    // A zero-length file (some pickers pre-create one) counts as "no vault yet".
+    public bool FileExists => File.Exists(Path) && new FileInfo(Path).Length > 0;
 
     public static string DefaultPath()
     {
+        var saved = AppSettings.Load().VaultPath;
+        if (!string.IsNullOrEmpty(saved)) return saved;
         var dir = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PasswordKeeper");
         Directory.CreateDirectory(dir);

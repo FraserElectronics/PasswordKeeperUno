@@ -1,6 +1,7 @@
 using PasswordKeeper.App.Services;
 using PasswordKeeper.Core.Generation;
 using PasswordKeeper.Core.Vault;
+using Windows.Storage.Pickers;
 using Windows.System;
 
 namespace PasswordKeeper.App;
@@ -10,7 +11,7 @@ public sealed partial class MainPage : Page
     private const int MinMasterLength = 12;
     private static readonly TimeSpan IdleLockAfter = TimeSpan.FromMinutes(5);
 
-    private readonly VaultSession _session = new(VaultSession.DefaultPath());
+    private VaultSession _session = new(VaultSession.DefaultPath());
     private readonly DispatcherTimer _idleTimer = new() { Interval = IdleLockAfter };
     private VaultEntry? _current;
     private bool _loadingEditor;
@@ -39,6 +40,7 @@ public sealed partial class MainPage : Page
         ConfirmBox.Password = "";
         UnlockError.Text = "";
 
+        PathText.Text = _session.Path;
         var creating = !_session.FileExists;
         ConfirmBox.Visibility = creating ? Visibility.Visible : Visibility.Collapsed;
         UnlockButton.Content = creating ? "Create vault" : "Unlock";
@@ -63,6 +65,35 @@ public sealed partial class MainPage : Page
         var b = ConfirmBox.Password;
         MatchText.Text = $"{a.Length} / {b.Length} characters. " +
                          (b.Length == 0 ? "" : a == b ? "Match." : "Not matching yet.");
+    }
+
+    private async void OnOpenVaultClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker();
+        picker.FileTypeFilter.Add(".pkv");
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null) UseVaultPath(file.Path);
+    }
+
+    private async void OnNewVaultClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker { SuggestedFileName = "vault" };
+        picker.FileTypeChoices.Add("PasswordKeeper vault", new List<string> { ".pkv" });
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+        if (new FileInfo(file.Path).Exists && new FileInfo(file.Path).Length > 0)
+        {
+            UnlockError.Text = "That file already contains data. Use \"Open vault file...\" to open it.";
+            return;
+        }
+        UseVaultPath(file.Path);
+    }
+
+    private void UseVaultPath(string path)
+    {
+        new AppSettings { VaultPath = path }.Save();
+        _session = new VaultSession(path);
+        ShowUnlock();
     }
 
     private void OnMasterKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)

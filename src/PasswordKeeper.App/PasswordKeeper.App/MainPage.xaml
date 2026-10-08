@@ -15,6 +15,11 @@
       <TextBlock x:Name="MatchText" Opacity="0.7" />
       <Button x:Name="UnlockButton" Content="Unlock" HorizontalAlignment="Stretch" Click="OnUnlockClick" />
       <TextBlock x:Name="UnlockError" Foreground="Red" TextWrapping="Wrap" />
+      <TextBlock x:Name="PathText" Opacity="0.6" FontSize="11" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+        <Button Content="Open vault file..." Click="OnOpenVaultClick" />
+        <Button Content="New vault file..." Click="OnNewVaultClick" />
+      </StackPanel>
     </StackPanel>
 
     <!-- Vault -->
