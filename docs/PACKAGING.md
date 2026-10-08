@@ -12,6 +12,6 @@ Running it on other people's Macs without warnings needs an Apple Developer ID c
 
 ## Windows (run on Windows)
 ```
-dotnet publish src/PasswordKeeper.App/PasswordKeeper.App/PasswordKeeper.App.csproj -c Release -f net10.0-desktop -r win-x64 --self-contained true -o artifacts/win-x64
+dotnet publish src/PasswordKeeper.App/PasswordKeeper.App/PasswordKeeper.App.csproj -c Release -p:TargetFrameworks=net10.0-desktop -r win-x64 --self-contained true -o artifacts/win-x64
 ```
 Run `PasswordKeeper.App.exe` from that folder.
