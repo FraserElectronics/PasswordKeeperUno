@@ -25,6 +25,8 @@ public sealed partial class MainPage : Page
         AddHandler(PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ResetIdle()), true);
         AddHandler(KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, _) => ResetIdle()), true);
 
+        foreach (var box in new[] { MasterBox, ConfirmBox, PassBox }) PasswordBoxTab.Attach(box);
+
         ShowUnlock();
         // Without explicit focus the first keystrokes have no target, which makes macOS beep.
         Loaded += (_, _) => MasterBox.Focus(FocusState.Programmatic);
@@ -295,6 +297,7 @@ public sealed partial class MainPage : Page
         var current = new PasswordBox { Header = "Current master password" };
         var next = new PasswordBox { Header = $"New master password (at least {MinMasterLength} characters)" };
         var confirm = new PasswordBox { Header = "Confirm new master password" };
+        foreach (var box in new[] { current, next, confirm }) PasswordBoxTab.Attach(box);
         var show = new CheckBox { Content = "Show passwords" };
         var counts = new TextBlock { Opacity = 0.7 };
         void Refresh(object? s, RoutedEventArgs? a)
