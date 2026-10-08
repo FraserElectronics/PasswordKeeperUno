@@ -151,7 +151,19 @@
       <ScrollViewer Grid.Column="1">
         <StackPanel x:Name="EditorPanel" Spacing="10">
           <TextBox x:Name="TitleBox" Header="Title" />
-          <TextBox x:Name="UrlBox" Header="URL" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="UrlBox" Header="URL" />
+            <Button Grid.Column="1" VerticalAlignment="Bottom" Click="OnOpenUrlClick">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <SymbolIcon Symbol="Go" />
+                <TextBlock Text="Open" />
+              </StackPanel>
+            </Button>
+          </Grid>
           <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />

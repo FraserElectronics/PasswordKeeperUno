@@ -273,6 +273,21 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private async void OnOpenUrlClick(object sender, RoutedEventArgs e)
+    {
+        var text = UrlBox.Text.Trim();
+        if (text.Length == 0) return;
+        if (!text.Contains("://")) text = "https://" + text;
+        // Only web links: a vault entry must never be able to launch other schemes (file:, custom handlers).
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            StatusText.Text = "Only http and https addresses can be opened.";
+            return;
+        }
+        if (!await Launcher.LaunchUriAsync(uri)) StatusText.Text = "Could not open the browser.";
+    }
+
     private void OnGenerateClick(object sender, RoutedEventArgs e) =>
         PassBox.Password = PasswordGenerator.Generate();
 
