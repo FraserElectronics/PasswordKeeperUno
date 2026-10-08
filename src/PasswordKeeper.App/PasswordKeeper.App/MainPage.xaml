@@ -1,17 +1,71 @@
-﻿<Page x:Class="PasswordKeeper.App.MainPage"
+<Page x:Class="PasswordKeeper.App.MainPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:local="using:PasswordKeeper.App"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-  <ScrollViewer IsTabStop="True">
-    <Grid>
-      <StackPanel
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center">
-        <TextBlock AutomationProperties.AutomationId="HelloTextBlock"
-          Text="Hello Uno Platform!"
-          HorizontalAlignment="Center" />
-      </StackPanel>
+
+  <Grid>
+    <!-- Unlock / create -->
+    <StackPanel x:Name="UnlockPanel" Width="360" Spacing="12"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="PasswordKeeper" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
+      <TextBlock x:Name="UnlockHint" TextWrapping="Wrap" />
+      <PasswordBox x:Name="MasterBox" PlaceholderText="Master password" KeyDown="OnMasterKeyDown" />
+      <PasswordBox x:Name="ConfirmBox" PlaceholderText="Confirm master password" Visibility="Collapsed" KeyDown="OnMasterKeyDown" />
+      <Button x:Name="UnlockButton" Content="Unlock" HorizontalAlignment="Stretch" Click="OnUnlockClick" />
+      <TextBlock x:Name="UnlockError" Foreground="Red" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <!-- Vault -->
+    <Grid x:Name="VaultPanel" Visibility="Collapsed" Padding="16" ColumnSpacing="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="280" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <Grid RowSpacing="8">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBox x:Name="SearchBox" PlaceholderText="Search" TextChanged="OnSearchChanged" />
+        <ListView x:Name="EntryList" Grid.Row="1" DisplayMemberPath="Title" SelectionChanged="OnEntrySelected" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+          <Button Content="New entry" Click="OnNewClick" />
+          <Button Content="Lock" Click="OnLockClick" />
+        </StackPanel>
+      </Grid>
+
+      <ScrollViewer Grid.Column="1">
+        <StackPanel x:Name="EditorPanel" Spacing="10" IsHitTestVisible="True">
+          <TextBox x:Name="TitleBox" Header="Title" />
+          <TextBox x:Name="UrlBox" Header="URL" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="UserBox" Header="Username" />
+            <Button Grid.Column="1" Content="Copy" VerticalAlignment="Bottom" Click="OnCopyUserClick" />
+          </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <PasswordBox x:Name="PassBox" Header="Password" PasswordRevealMode="Peek" />
+            <Button Grid.Column="1" Content="Generate" VerticalAlignment="Bottom" Click="OnGenerateClick" />
+            <Button Grid.Column="2" Content="Copy" VerticalAlignment="Bottom" Click="OnCopyPassClick" />
+          </Grid>
+          <TextBox x:Name="NotesBox" Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="SaveButton" Content="Save" Click="OnSaveClick" />
+            <Button x:Name="DeleteButton" Content="Delete" Click="OnDeleteClick" />
+          </StackPanel>
+          <TextBlock x:Name="StatusText" Opacity="0.7" />
+        </StackPanel>
+      </ScrollViewer>
     </Grid>
-  </ScrollViewer>
+  </Grid>
 </Page>
