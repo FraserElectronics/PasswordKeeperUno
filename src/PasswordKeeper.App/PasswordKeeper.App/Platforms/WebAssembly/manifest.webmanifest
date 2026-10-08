@@ -1,0 +1,10 @@
+{
+  "background_color": "#ffffff",
+  "description": "PasswordKeeper.App",
+  "display": "standalone",
+  "name": "PasswordKeeper.App",
+  "short_name": "PasswordKeeper.App",
+  "start_url": "/index.html",
+  "theme_color": "#ffffff",
+  "scope": "/"
+}
