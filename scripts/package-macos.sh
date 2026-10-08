@@ -21,6 +21,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>PasswordKeeper</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleDisplayName</key><string>PasswordKeeper</string>
   <key>CFBundleIdentifier</key><string>uk.co.fraserelectronics.passwordkeeper</string>
   <key>CFBundleExecutable</key><string>PasswordKeeper.App</string>
@@ -34,6 +35,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 chmod +x "$APP/Contents/MacOS/PasswordKeeper.App"
+
+# App icon: render the SVG with Quick Look, then build an .icns. Non-fatal if it fails.
+make_icon() {
+  local tmp="$OUT/icon"; mkdir -p "$tmp/AppIcon.iconset"
+  qlmanage -t -s 1024 -o "$tmp" "$ROOT/scripts/macos/AppIcon.svg" >/dev/null 2>&1
+  local png="$tmp/AppIcon.svg.png"
+  [ -f "$png" ] || return 1
+  for size in 16 32 128 256 512; do
+    sips -z $size $size "$png" --out "$tmp/AppIcon.iconset/icon_${size}x${size}.png" >/dev/null
+    sips -z $((size*2)) $((size*2)) "$png" --out "$tmp/AppIcon.iconset/icon_${size}x${size}@2x.png" >/dev/null
+  done
+  iconutil -c icns "$tmp/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+}
+make_icon || echo "Warning: could not build the app icon; continuing without it."
 
 # Ad-hoc signature: lets it run on this Mac. Distribution to other Macs needs a Developer ID
 # certificate and notarization (see docs/PACKAGING.md).

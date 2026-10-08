@@ -8,9 +8,17 @@ namespace PasswordKeeper.App.Services;
 /// Holds the unlocked vault in memory. The master password is kept only so the file can be
 /// re-encrypted on save; it is dropped on <see cref="Lock"/>.
 /// </summary>
+/// <summary>The vault file on disk was modified by something other than this session.</summary>
+public sealed class VaultChangedOnDiskException : Exception
+{
+    public VaultChangedOnDiskException()
+        : base("The vault file has been changed outside this app since it was opened.") { }
+}
+
 public sealed class VaultSession
 {
     private string? _masterPassword;
+    private byte[]? _fileHash;
 
     public VaultSession(string path) => Path = path;
 
@@ -36,23 +44,39 @@ public sealed class VaultSession
         VaultFile.Save(Path, data, masterPassword);
         Data = data;
         _masterPassword = masterPassword;
+        RememberFile();
     });
 
     public Task UnlockAsync(string masterPassword) => Task.Run(() =>
     {
         Data = VaultFile.Load(Path, masterPassword);
         _masterPassword = masterPassword;
+        RememberFile();
     });
 
-    public Task SaveAsync()
+    /// <summary>Re-reads the vault from disk with the current master password, discarding in-memory changes.</summary>
+    public Task ReloadAsync()
+    {
+        if (_masterPassword is null) throw new InvalidOperationException("Vault is locked.");
+        var pw = _masterPassword;
+        return Task.Run(() =>
+        {
+            Data = VaultFile.Load(Path, pw);
+            RememberFile();
+        });
+    }
+
+    public Task SaveAsync(bool overwrite = false)
     {
         if (Data is null || _masterPassword is null) throw new InvalidOperationException("Vault is locked.");
         var data = Data;
         var pw = _masterPassword;
         return Task.Run(() =>
         {
+            if (!overwrite && FileExists && !FileMatchesRemembered()) throw new VaultChangedOnDiskException();
             BackupIfDue();
             VaultFile.Save(Path, data, pw);
+            RememberFile();
         });
     }
 
@@ -68,6 +92,7 @@ public sealed class VaultSession
             BackupIfDue();
             // Keep the previous file until the new one is proven to open with the new password.
             var previous = File.ReadAllBytes(Path);
+            if (FileExists && !FileMatchesRemembered()) throw new VaultChangedOnDiskException();
             VaultFile.Save(Path, data, next);
             try
             {
@@ -79,6 +104,7 @@ public sealed class VaultSession
                 throw new InvalidOperationException("Could not verify the new password; the old one is still in place.");
             }
             _masterPassword = next;
+            RememberFile();
         });
     }
 
@@ -106,5 +132,13 @@ public sealed class VaultSession
     {
         Data = null;
         _masterPassword = null;
+        _fileHash = null;
     }
+
+    private void RememberFile() => _fileHash = HashFile();
+
+    private bool FileMatchesRemembered() =>
+        _fileHash is not null && HashFile() is { } now && CryptographicOperations.FixedTimeEquals(_fileHash, now);
+
+    private byte[]? HashFile() => File.Exists(Path) ? SHA256.HashData(File.ReadAllBytes(Path)) : null;
 }

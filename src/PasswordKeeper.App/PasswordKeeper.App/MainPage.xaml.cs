@@ -15,6 +15,7 @@ public sealed partial class MainPage : Page
     private readonly DispatcherTimer _idleTimer = new() { Interval = IdleLockAfter };
     private VaultEntry? _current;
     private bool _loadingEditor;
+    private bool _dirty;
 
     public MainPage()
     {
@@ -137,9 +138,11 @@ public sealed partial class MainPage : Page
 
     private void OnLockClick(object sender, RoutedEventArgs e) => LockVault();
 
-    private void LockVault()
+    private async void LockVault()
     {
         _idleTimer.Stop();
+        // Unsaved edits are saved rather than lost; never prompt here, since this also runs on idle.
+        try { await FlushEditAsync(interactive: false); } catch { /* lock regardless */ }
         _session.Lock();
         _current = null;
         ClearEditor();
@@ -185,9 +188,15 @@ public sealed partial class MainPage : Page
         if (_session.IsUnlocked) RefreshList(_current?.Id);
     }
 
-    private void OnEntrySelected(object sender, SelectionChangedEventArgs e)
+    private async void OnEntrySelected(object sender, SelectionChangedEventArgs e)
     {
-        if (EntryList.SelectedItem is VaultEntry entry) LoadEditor(entry);
+        if (EntryList.SelectedItem is not VaultEntry entry || ReferenceEquals(entry, _current)) return;
+        if (_dirty && _current is not null)
+        {
+            await FlushEditAsync();
+            RefreshList(entry.Id);
+        }
+        LoadEditor(entry);
     }
 
     // ---- Editor --------------------------------------------------------------------------
@@ -204,6 +213,7 @@ public sealed partial class MainPage : Page
         StatusText.Text = "";
         EditorPanel.Visibility = Visibility.Visible;
         _loadingEditor = false;
+        _dirty = false;
     }
 
     private void ClearEditor()
@@ -215,10 +225,12 @@ public sealed partial class MainPage : Page
         StatusText.Text = "";
         EditorPanel.Visibility = Visibility.Collapsed;
         _loadingEditor = false;
+        _dirty = false;
     }
 
-    private void OnNewClick(object sender, RoutedEventArgs e)
+    private async void OnNewClick(object sender, RoutedEventArgs e)
     {
+        await FlushEditAsync();
         SearchBox.Text = "";
         var entry = new VaultEntry { Title = "New entry" };
         _session.Data!.Entries.Add(entry);
@@ -230,15 +242,43 @@ public sealed partial class MainPage : Page
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
         if (_current is null || _loadingEditor) return;
+        ApplyEditor();
+        await SaveVaultAsync("Saved.");
+        RefreshList(_current.Id);
+    }
+
+    private void ApplyEditor()
+    {
+        if (_current is null) return;
         _current.Title = TitleBox.Text.Trim();
         _current.Url = UrlBox.Text.Trim();
         _current.Username = UserBox.Text;
         _current.Password = PassBox.Password;
         _current.Notes = NotesBox.Text;
         _current.ModifiedUtc = DateTimeOffset.UtcNow;
+        _dirty = false;
+    }
 
-        await SaveVaultAsync("Saved.");
-        RefreshList(_current.Id);
+    private void OnEditorChanged(object sender, TextChangedEventArgs e) => UpdateDirty();
+    private void OnEditorPasswordChanged(object sender, RoutedEventArgs e) => UpdateDirty();
+
+    // TextChanged can fire after a programmatic load, so compare with the entry instead of trusting it.
+    private void UpdateDirty()
+    {
+        if (_loadingEditor || _current is null) return;
+        _dirty = TitleBox.Text.Trim() != _current.Title ||
+                 UrlBox.Text.Trim() != _current.Url ||
+                 UserBox.Text != _current.Username ||
+                 PassBox.Password != _current.Password ||
+                 NotesBox.Text != _current.Notes;
+        if (_dirty) StatusText.Text = "Unsaved changes (saved when you switch entry or lock).";
+    }
+
+    private async Task FlushEditAsync(bool interactive = true)
+    {
+        if (!_dirty || _current is null) return;
+        ApplyEditor();
+        await SaveVaultAsync("Saved.", interactive);
     }
 
     private async void OnDeleteClick(object sender, RoutedEventArgs e)
@@ -260,17 +300,65 @@ public sealed partial class MainPage : Page
         await SaveVaultAsync("Deleted.");
     }
 
-    private async Task SaveVaultAsync(string okMessage)
+    private async Task<bool> SaveVaultAsync(string okMessage, bool interactive = true)
     {
         try
         {
             await _session.SaveAsync();
             StatusText.Text = okMessage;
+            return true;
+        }
+        catch (VaultChangedOnDiskException)
+        {
+            if (!interactive) return false;
+            return await ResolveChangedOnDiskAsync(okMessage);
         }
         catch (Exception ex)
         {
             StatusText.Text = "Could not save: " + ex.Message;
+            return false;
         }
+    }
+
+    private async Task<bool> ResolveChangedOnDiskAsync(string okMessage)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Vault file changed",
+            Content = "The vault file was changed outside this app since you opened it (another computer or a sync tool). " +
+                      "Overwrite it with what you have here, or reload the version on disk? Reloading discards unsaved changes made here.",
+            PrimaryButtonText = "Overwrite",
+            SecondaryButtonText = "Reload",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        var result = await dialog.ShowAsync();
+        try
+        {
+            if (result == ContentDialogResult.Primary)
+            {
+                await _session.SaveAsync(overwrite: true);
+                StatusText.Text = okMessage;
+                return true;
+            }
+            if (result == ContentDialogResult.Secondary)
+            {
+                await _session.ReloadAsync();
+                ClearEditor();
+                RefreshList();
+                StatusText.Text = "Reloaded from disk.";
+            }
+        }
+        catch (VaultAuthenticationException)
+        {
+            // The file on disk now uses a different master password.
+            LockVault();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Could not complete that: " + ex.Message;
+        }
+        return false;
     }
 
     private async void OnOpenUrlClick(object sender, RoutedEventArgs e)
@@ -348,6 +436,7 @@ public sealed partial class MainPage : Page
                 StatusText.Text = "Master password changed.";
             }
             catch (VaultAuthenticationException) { args.Cancel = true; error.Text = "Current master password is wrong."; }
+            catch (VaultChangedOnDiskException) { args.Cancel = true; error.Text = "The vault file changed outside this app. Cancel, then save an entry to choose Overwrite or Reload first."; }
             catch (InvalidOperationException ex) { args.Cancel = true; error.Text = ex.Message; }
             finally { deferral.Complete(); }
         };
