@@ -33,6 +33,7 @@ public sealed partial class MainPage : Page
         // Leave room beneath the card so it can scroll clear of the on-screen keyboard.
         UnlockCard.Margin = new Thickness(16, 16, 16, 340);
 #endif
+        NotesBox.FontFamily = new FontFamily(OperatingSystem.IsWindows() ? "Consolas" : "Menlo");
         PasswordBoxTab.AttachChain(MasterBox, ConfirmBox, ShowMasterCheck, UnlockButton);
         PasswordBoxTab.AttachChain(SearchBox, EntryList, TitleBox, UrlBox, UserBox, PassBox, ShowPassCheck, NotesBox, SaveButton);
 
@@ -632,6 +633,7 @@ public sealed partial class MainPage : Page
             CloudStatusText.Text = "";
             ShowUnlock();
             UnlockHint.Text = "Restored from Backblaze. Enter the master password of the restored vault.";
+            await ShowRestoreSuccessAsync(settings);
         }
         catch (Exception ex)
         {
@@ -642,6 +644,16 @@ public sealed partial class MainPage : Page
             _cloudBusy = false;
         }
     }
+
+    private Task<ContentDialogResult> ShowRestoreSuccessAsync(CloudBackupSettings settings) =>
+        new ContentDialog
+        {
+            Title = "Restore complete",
+            Content = $"Downloaded \"{settings.FileName}\" from Backblaze bucket \"{settings.Bucket}\" and saved it to {_session.Path}. " +
+                      "Enter the master password to unlock it.",
+            CloseButtonText = "OK",
+            XamlRoot = XamlRoot,
+        }.ShowAsync().AsTask();
 
     private async void OnCloudBackupClick(object sender, RoutedEventArgs e)
     {
@@ -714,6 +726,7 @@ public sealed partial class MainPage : Page
             await CloudBackupService.RestoreAsync(_session.Path, form.Read());
             ShowUnlock();
             UnlockHint.Text = "Restored from Backblaze. Enter your master password.";
+            await ShowRestoreSuccessAsync(form.Read());
         }
         catch (Exception ex)
         {
