@@ -751,16 +751,38 @@ public sealed partial class MainPage : Page
 
             Panel = new StackPanel { Spacing = 8 };
             Panel.Children.Add(new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
-            Panel.Children.Add(_keyId);
-            Panel.Children.Add(_appKey);
+            Panel.Children.Add(WithPaste(_keyId, t => _keyId.Text = t.Trim()));
+            Panel.Children.Add(WithPaste(_appKey, t => _appKey.Password = t.Trim()));
             Panel.Children.Add(_showKey);
-            Panel.Children.Add(_bucket);
+            Panel.Children.Add(WithPaste(_bucket, t => _bucket.Text = t.Trim()));
             Panel.Children.Add(_fileName);
             if (withAutoBackup) Panel.Children.Add(_auto);
             Panel.Children.Add(Error);
 
             if (withAutoBackup) PasswordBoxTab.AttachChain(_keyId, _appKey, _showKey, _bucket, _fileName, _auto);
             else PasswordBoxTab.AttachChain(_keyId, _appKey, _showKey, _bucket, _fileName);
+        }
+
+        // Cmd/Ctrl+V does not always reach text boxes inside Uno dialogs, so offer an explicit Paste button.
+        private static Grid WithPaste(Control field, Action<string> apply)
+        {
+            var button = new Button { Content = "Paste", VerticalAlignment = VerticalAlignment.Bottom, IsTabStop = false };
+            button.Click += async (_, _) =>
+            {
+                try
+                {
+                    var text = await Windows.ApplicationModel.DataTransfer.Clipboard.GetContent().GetTextAsync();
+                    if (!string.IsNullOrEmpty(text)) apply(text);
+                }
+                catch { /* clipboard unavailable */ }
+            };
+            var grid = new Grid { ColumnSpacing = 8 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.Children.Add(field);
+            Grid.SetColumn(button, 1);
+            grid.Children.Add(button);
+            return grid;
         }
 
         public CloudBackupSettings Read() => new()
