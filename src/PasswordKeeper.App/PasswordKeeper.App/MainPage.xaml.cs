@@ -34,7 +34,7 @@ public sealed partial class MainPage : Page
         UnlockCard.Margin = new Thickness(16, 16, 16, 340);
 #endif
         PasswordBoxTab.AttachChain(MasterBox, ConfirmBox, ShowMasterCheck, UnlockButton);
-        PasswordBoxTab.AttachChain(SearchBox, EntryList, TitleBox, UrlBox, UserBox, PassBox, NotesBox, SaveButton);
+        PasswordBoxTab.AttachChain(SearchBox, EntryList, TitleBox, UrlBox, UserBox, PassBox, ShowPassCheck, NotesBox, SaveButton);
 
         ShowUnlock();
         // Without explicit focus the first keystrokes have no target, which makes macOS beep.
@@ -68,6 +68,9 @@ public sealed partial class MainPage : Page
         MasterBox.PasswordRevealMode = mode;
         ConfirmBox.PasswordRevealMode = mode;
     }
+
+    private void OnShowPassChanged(object sender, RoutedEventArgs e) =>
+        PassBox.PasswordRevealMode = ShowPassCheck.IsChecked == true ? PasswordRevealMode.Visible : PasswordRevealMode.Hidden;
 
     private void OnMasterChanged(object sender, RoutedEventArgs e)
     {
@@ -297,7 +300,7 @@ public sealed partial class MainPage : Page
     {
         await FlushEditAsync();
         SearchBox.Text = "";
-        var entry = new VaultEntry { Title = "New entry" };
+        var entry = new VaultEntry { Title = "" };
         _session.Data!.Entries.Add(entry);
         RefreshList(entry.Id);
         LoadEditor(entry);
