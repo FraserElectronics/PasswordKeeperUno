@@ -32,6 +32,13 @@ public sealed partial class MainPage : Page
 #if __IOS__ || __ANDROID__
         // Leave room beneath the card so it can scroll clear of the on-screen keyboard.
         UnlockCard.Margin = new Thickness(16, 16, 16, 340);
+        // The app draws edge to edge, so keep the vault view clear of the status bar / camera cut-out
+        // and the home indicator.
+#if __IOS__
+        VaultPanel.Padding = new Thickness(16, 64, 16, 28);
+#else
+        VaultPanel.Padding = new Thickness(16, 40, 16, 24);
+#endif
 #endif
         NotesBox.FontFamily = new FontFamily(OperatingSystem.IsWindows() ? "Consolas" : "Menlo");
         PasswordBoxTab.AttachChain(MasterBox, ConfirmBox, ShowMasterCheck, UnlockButton);
