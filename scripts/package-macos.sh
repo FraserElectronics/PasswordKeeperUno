@@ -69,6 +69,7 @@ if [ -n "${SIGN_IDENTITY:-}" ]; then
   # Sign every native binary (anywhere in the bundle) first, then the bundle itself.
   echo "Signing native code"
   while IFS= read -r f; do
+    [ "$f" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue   # main executable goes last
     if file "$f" | grep -q "Mach-O"; then
       codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
     fi
