@@ -55,10 +55,26 @@ make_icon || echo "Warning: could not build the app icon; continuing without it.
 # (hardened runtime + entitlements), ready for notarization by scripts/release-macos.sh.
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   ENT="$ROOT/scripts/macos/entitlements.plist"
-  # One --deep pass signs the nested native code and seals the managed .dll files; signing the
-  # main executable on its own fails because macOS treats the .dlls beside it as unsigned code.
+  # macOS treats everything in Contents/MacOS (the managed .dll files, data folders) as nested code,
+  # and plain files cannot be signed that way. So only Mach-O files stay there; everything else
+  # moves to Contents/Resources/app and is symlinked back, where .NET still finds it.
+  RES="$APP/Contents/Resources/app"; mkdir -p "$RES"
+  while IFS= read -r item; do
+    if [ -f "$item" ] && [ ! -L "$item" ] && file "$item" | grep -q "Mach-O"; then continue; fi
+    name="$(basename "$item")"
+    mv "$item" "$RES/$name"
+    ln -s "../Resources/app/$name" "$item"
+  done < <(find "$APP/Contents/MacOS" -mindepth 1 -maxdepth 1)
+
+  # Sign every native binary (anywhere in the bundle) first, then the bundle itself.
+  echo "Signing native code"
+  while IFS= read -r f; do
+    if file "$f" | grep -q "Mach-O"; then
+      codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
+    fi
+  done < <(find "$APP/Contents" -type f)
   echo "Signing bundle"
-  codesign --force --deep --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
+  codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
   echo "Verifying bundle"
   codesign --verify --strict --verbose=2 "$APP"
 else
