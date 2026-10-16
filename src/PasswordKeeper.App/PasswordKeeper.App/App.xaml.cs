@@ -49,7 +49,28 @@ public partial class App : Application
         MainWindow.SetWindowIcon();
         // Ensure the current window is active
         MainWindow.Activate();
+#if !(__IOS__ || __ANDROID__ || __WASM__)
+        CenterOnScreen(MainWindow);
+#endif
     }
+
+#if !(__IOS__ || __ANDROID__ || __WASM__)
+    private static void CenterOnScreen(Window window)
+    {
+        try
+        {
+            if (!Services.ScreenInfo.TryGetPrimarySize(out var screenW, out var screenH)) return;
+            var size = window.AppWindow.Size;
+            var x = Math.Max(0, (screenW - size.Width) / 2);
+            var y = Math.Max(0, (screenH - size.Height) / 2);
+            window.AppWindow.Move(new global::Windows.Graphics.PointInt32(x, y));
+        }
+        catch
+        {
+            // Centring is cosmetic; ignore platforms that don't support moving the window.
+        }
+    }
+#endif
 
     /// <summary>
     /// Invoked when Navigation to a certain page fails
