@@ -128,6 +128,9 @@ public sealed class VaultSession
             File.Delete(old);
     }
 
+    /// <summary>The vault file exactly as stored (already encrypted), e.g. for uploading.</summary>
+    public byte[] ReadFileBytes() => File.ReadAllBytes(Path);
+
     public void Lock()
     {
         Data = null;

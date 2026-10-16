@@ -61,6 +61,12 @@
                 </StackPanel>
               </Button>
             </StackPanel>
+            <Button HorizontalAlignment="Center" Click="OnRestoreFromCloudClick">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <SymbolIcon Symbol="Download" />
+                <TextBlock Text="Restore from cloud..." />
+              </StackPanel>
+            </Button>
           </StackPanel>
         </Border>
       </ScrollViewer>
@@ -133,6 +139,12 @@
               <TextBlock Text="Change master password..." />
             </StackPanel>
           </Button>
+          <Button HorizontalAlignment="Stretch" Click="OnCloudBackupClick">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <SymbolIcon Symbol="Sync" />
+              <TextBlock Text="Cloud backup..." />
+            </StackPanel>
+          </Button>
           <Button HorizontalAlignment="Stretch" Click="OnImportClick">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <SymbolIcon Symbol="Import" />
@@ -145,6 +157,7 @@
               <TextBlock Text="Export CSV..." />
             </StackPanel>
           </Button>
+          <TextBlock x:Name="CloudStatusText" Opacity="0.7" FontSize="11" TextWrapping="Wrap" />
         </StackPanel>
       </Grid>
 

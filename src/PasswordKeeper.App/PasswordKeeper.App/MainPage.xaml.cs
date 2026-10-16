@@ -1,4 +1,5 @@
 using PasswordKeeper.App.Services;
+using PasswordKeeper.Core.Cloud;
 using PasswordKeeper.Core.Generation;
 using PasswordKeeper.Core.Vault;
 using Windows.Storage.Pickers;
@@ -16,6 +17,7 @@ public sealed partial class MainPage : Page
     private VaultEntry? _current;
     private bool _loadingEditor;
     private bool _dirty;
+    private bool _cloudBusy;
 
     public MainPage()
     {
@@ -174,6 +176,7 @@ public sealed partial class MainPage : Page
         ClearEditor();
         EntryList.ItemsSource = null;
         SearchBox.Text = "";
+        CloudStatusText.Text = "";
         ShowUnlock();
     }
 
@@ -443,6 +446,7 @@ public sealed partial class MainPage : Page
         {
             await _session.SaveAsync();
             StatusText.Text = okMessage;
+            AutoBackupAfterSave();
             return true;
         }
         catch (VaultChangedOnDiskException)
@@ -476,6 +480,7 @@ public sealed partial class MainPage : Page
             {
                 await _session.SaveAsync(overwrite: true);
                 StatusText.Text = okMessage;
+                AutoBackupAfterSave();
                 return true;
             }
             if (result == ContentDialogResult.Secondary)
@@ -530,6 +535,241 @@ public sealed partial class MainPage : Page
         StatusText.Text = $"Password copied (clears in {ClipboardService.ClearAfter.TotalSeconds:0}s).";
     }
 
+    // ---- Cloud backup (Backblaze B2) -------------------------------------------------------
+
+    private void AutoBackupAfterSave()
+    {
+        if (_session.Data?.CloudBackup is { AutoBackup: true, IsComplete: true })
+            _ = RunBackupAsync(interactive: false);
+    }
+
+    private async Task RunBackupAsync(bool interactive)
+    {
+        var settings = _session.Data?.CloudBackup;
+        if (settings is null || !settings.IsComplete || _cloudBusy) return;
+        _cloudBusy = true;
+        var restoreNext = false;
+        CloudStatusText.Text = "Backing up to Backblaze...";
+        try
+        {
+            var outcome = await CloudBackupService.BackupAsync(_session, settings, overwriteCloud: false);
+            if (outcome == BackupOutcome.CloudChanged)
+            {
+                if (!interactive)
+                {
+                    CloudStatusText.Text = "The cloud copy was changed on another device. Open Cloud backup to choose what to keep.";
+                    return;
+                }
+                var dialog = new ContentDialog
+                {
+                    Title = "Cloud copy is different",
+                    Content = "The copy in Backblaze was changed since this device last synced (probably from another device). " +
+                              "Overwrite it with this vault, or replace this vault with the cloud copy?",
+                    PrimaryButtonText = "Overwrite cloud copy",
+                    SecondaryButtonText = "Restore cloud copy",
+                    CloseButtonText = "Cancel",
+                    XamlRoot = XamlRoot,
+                };
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    await CloudBackupService.BackupAsync(_session, settings, overwriteCloud: true);
+                    CloudStatusText.Text = $"Backed up to Backblaze at {DateTime.Now:HH:mm}.";
+                }
+                else if (result == ContentDialogResult.Secondary)
+                {
+                    restoreNext = true;
+                }
+                else
+                {
+                    CloudStatusText.Text = "Backup cancelled.";
+                }
+                return;
+            }
+            CloudStatusText.Text = $"Backed up to Backblaze at {DateTime.Now:HH:mm}.";
+        }
+        catch (Exception ex)
+        {
+            CloudStatusText.Text = "Cloud backup failed: " + ex.Message;
+        }
+        finally
+        {
+            _cloudBusy = false;
+            if (restoreNext) _ = RestoreCloudCopyAsync(settings);
+        }
+    }
+
+    private async Task RestoreCloudCopyAsync(CloudBackupSettings settings)
+    {
+        if (_cloudBusy) return;
+        var confirm = new ContentDialog
+        {
+            Title = "Replace this vault with the cloud copy?",
+            Content = $"The vault on this device ({_session.Path}) will be replaced by the copy in Backblaze. " +
+                      "Your current file is kept beside it with the ending .before-restore. " +
+                      "You will need the master password of the cloud copy.",
+            PrimaryButtonText = "Replace",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        _cloudBusy = true;
+        CloudStatusText.Text = "Restoring from Backblaze...";
+        try
+        {
+            await FlushEditAsync(interactive: false);
+            await CloudBackupService.RestoreAsync(_session.Path, settings);
+            _idleTimer.Stop();
+            _session.Lock();
+            _current = null;
+            ClearEditor();
+            EntryList.ItemsSource = null;
+            SearchBox.Text = "";
+            CloudStatusText.Text = "";
+            ShowUnlock();
+            UnlockHint.Text = "Restored from Backblaze. Enter the master password of the restored vault.";
+        }
+        catch (Exception ex)
+        {
+            CloudStatusText.Text = "Restore failed: " + ex.Message;
+        }
+        finally
+        {
+            _cloudBusy = false;
+        }
+    }
+
+    private async void OnCloudBackupClick(object sender, RoutedEventArgs e)
+    {
+        await FlushEditAsync();
+        var form = new CloudForm(_session.Data!.CloudBackup, withAutoBackup: true,
+            "Your vault stays encrypted: only the encrypted file is uploaded, so Backblaze never sees your passwords. " +
+            "Use a private bucket and an application key limited to it (see docs/CLOUD.md). " +
+            "These settings are stored inside your encrypted vault.");
+        var dialog = new ContentDialog
+        {
+            Title = "Cloud backup (Backblaze B2)",
+            Content = new ScrollViewer { Content = form.Panel, MaxHeight = 460 },
+            PrimaryButtonText = "Back up now",
+            SecondaryButtonText = "Restore from cloud",
+            CloseButtonText = "Close",
+            XamlRoot = XamlRoot,
+        };
+        void Validate(ContentDialogButtonClickEventArgs args)
+        {
+            if (form.Read().IsComplete) return;
+            args.Cancel = true;
+            form.Error.Text = "Fill in the key ID, application key, bucket and file name.";
+        }
+        dialog.PrimaryButtonClick += (_, args) => Validate(args);
+        dialog.SecondaryButtonClick += (_, args) => Validate(args);
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.None) return;
+
+        var settings = form.Read();
+        if (result == ContentDialogResult.Secondary)
+        {
+            await RestoreCloudCopyAsync(settings);
+            return;
+        }
+
+        // Keep the settings inside the vault, save it, then upload the freshly saved file.
+        _session.Data!.CloudBackup = settings;
+        _cloudBusy = true; // the save below must not start its own automatic backup
+        bool saved;
+        try { saved = await SaveVaultAsync("Saved."); }
+        finally { _cloudBusy = false; }
+        if (saved) await RunBackupAsync(interactive: true);
+    }
+
+    private async void OnRestoreFromCloudClick(object sender, RoutedEventArgs e)
+    {
+        var form = new CloudForm(null, withAutoBackup: false,
+            "Enter your Backblaze details to download your vault to this device. " +
+            $"If a vault already exists at {_session.Path} it is kept beside it with the ending .before-restore.");
+        var dialog = new ContentDialog
+        {
+            Title = "Restore from cloud",
+            Content = new ScrollViewer { Content = form.Panel, MaxHeight = 460 },
+            PrimaryButtonText = "Restore",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            if (form.Read().IsComplete) return;
+            args.Cancel = true;
+            form.Error.Text = "Fill in the key ID, application key, bucket and file name.";
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        UnlockError.Text = "";
+        try
+        {
+            await CloudBackupService.RestoreAsync(_session.Path, form.Read());
+            ShowUnlock();
+            UnlockHint.Text = "Restored from Backblaze. Enter your master password.";
+        }
+        catch (Exception ex)
+        {
+            UnlockError.Text = "Restore failed: " + ex.Message;
+        }
+    }
+
+    /// <summary>The Backblaze connection fields shared by the backup and restore dialogs.</summary>
+    private sealed class CloudForm
+    {
+        private readonly TextBox _keyId = new() { Header = "Application key ID" };
+        private readonly PasswordBox _appKey = new() { Header = "Application key" };
+        private readonly TextBox _bucket = new() { Header = "Bucket name" };
+        private readonly TextBox _fileName = new() { Header = "File name in the bucket", Text = "vault.pkv" };
+        private readonly CheckBox _showKey = new() { Content = "Show application key" };
+        private readonly CheckBox _auto = new() { Content = "Back up automatically after every save" };
+        private readonly bool _withAuto;
+
+        public TextBlock Error { get; } = new() { Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red), TextWrapping = TextWrapping.Wrap };
+        public StackPanel Panel { get; }
+
+        public CloudForm(CloudBackupSettings? initial, bool withAutoBackup, string intro)
+        {
+            _withAuto = withAutoBackup;
+            if (initial is not null)
+            {
+                _keyId.Text = initial.KeyId;
+                _appKey.Password = initial.ApplicationKey;
+                _bucket.Text = initial.Bucket;
+                _fileName.Text = initial.FileName;
+                _auto.IsChecked = initial.AutoBackup;
+            }
+            _showKey.Checked += (_, _) => _appKey.PasswordRevealMode = PasswordRevealMode.Visible;
+            _showKey.Unchecked += (_, _) => _appKey.PasswordRevealMode = PasswordRevealMode.Hidden;
+
+            Panel = new StackPanel { Spacing = 8 };
+            Panel.Children.Add(new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
+            Panel.Children.Add(_keyId);
+            Panel.Children.Add(_appKey);
+            Panel.Children.Add(_showKey);
+            Panel.Children.Add(_bucket);
+            Panel.Children.Add(_fileName);
+            if (withAutoBackup) Panel.Children.Add(_auto);
+            Panel.Children.Add(Error);
+
+            if (withAutoBackup) PasswordBoxTab.AttachChain(_keyId, _appKey, _showKey, _bucket, _fileName, _auto);
+            else PasswordBoxTab.AttachChain(_keyId, _appKey, _showKey, _bucket, _fileName);
+        }
+
+        public CloudBackupSettings Read() => new()
+        {
+            KeyId = _keyId.Text.Trim(),
+            ApplicationKey = _appKey.Password.Trim(),
+            Bucket = _bucket.Text.Trim(),
+            FileName = _fileName.Text.Trim(),
+            AutoBackup = _withAuto && _auto.IsChecked == true,
+        };
+    }
+
     // ---- Master password, import, export -------------------------------------------------
 
     private async void OnChangeMasterClick(object sender, RoutedEventArgs e)
@@ -571,6 +811,7 @@ public sealed partial class MainPage : Page
                     throw new InvalidOperationException("The new passwords don't match.");
                 await _session.ChangeMasterPasswordAsync(current.Password, next.Password);
                 StatusText.Text = "Master password changed.";
+                AutoBackupAfterSave();
             }
             catch (VaultAuthenticationException) { args.Cancel = true; error.Text = "Current master password is wrong."; }
             catch (VaultChangedOnDiskException) { args.Cancel = true; error.Text = "The vault file changed outside this app. Cancel, then save an entry to choose Overwrite or Reload first."; }
