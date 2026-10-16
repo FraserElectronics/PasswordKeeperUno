@@ -63,7 +63,7 @@ public partial class App : Application
             var size = window.AppWindow.Size;
             var x = Math.Max(0, (screenW - size.Width) / 2);
             var y = Math.Max(0, (screenH - size.Height) / 2);
-            window.AppWindow.Move(new global::Windows.Graphics.PointInt32(x, y));
+            window.AppWindow.Move(new global::Windows.Graphics.PointInt32 { X = x, Y = y });
         }
         catch
         {
