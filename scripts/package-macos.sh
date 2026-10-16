@@ -55,14 +55,10 @@ make_icon || echo "Warning: could not build the app icon; continuing without it.
 # (hardened runtime + entitlements), ready for notarization by scripts/release-macos.sh.
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   ENT="$ROOT/scripts/macos/entitlements.plist"
-  # Sign every file in Contents/MacOS (macOS treats the managed .dll files there as nested code),
-  # then the bundle itself.
-  while IFS= read -r f; do
-    echo "Signing: ${f#$APP/}"
-    codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
-  done < <(find "$APP/Contents/MacOS" -type f)
+  # One --deep pass signs the nested native code and seals the managed .dll files; signing the
+  # main executable on its own fails because macOS treats the .dlls beside it as unsigned code.
   echo "Signing bundle"
-  codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
+  codesign --force --deep --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
   echo "Verifying bundle"
   codesign --verify --strict --verbose=2 "$APP"
 else
