@@ -61,6 +61,13 @@ public partial class App : Application
         {
             if (!Services.ScreenInfo.TryGetPrimarySize(out var screenW, out var screenH)) return;
             var size = window.AppWindow.Size;
+            // The default window is 25% taller than the template's, but never taller than the screen.
+            var taller = Math.Min((int)(size.Height * 1.25), screenH - 80);
+            if (taller > size.Height)
+            {
+                window.AppWindow.Resize(new global::Windows.Graphics.SizeInt32 { Width = size.Width, Height = taller });
+                size = window.AppWindow.Size;
+            }
             var x = Math.Max(0, (screenW - size.Width) / 2);
             var y = Math.Max(0, (screenH - size.Height) / 2);
             window.AppWindow.Move(new global::Windows.Graphics.PointInt32 { X = x, Y = y });
