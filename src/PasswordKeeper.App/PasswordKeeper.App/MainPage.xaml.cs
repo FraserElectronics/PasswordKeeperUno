@@ -575,9 +575,9 @@ public sealed partial class MainPage : Page
                 {
                     Title = "Cloud copy is different",
                     Content = "The copy in Backblaze was changed since this device last synced (probably from another device). " +
-                              "Overwrite it with this vault, or replace this vault with the cloud copy?",
-                    PrimaryButtonText = "Overwrite cloud copy",
-                    SecondaryButtonText = "Restore cloud copy",
+                              "Overwrite: replace the cloud copy with this vault. Restore: replace this vault with the cloud copy.",
+                    PrimaryButtonText = "Overwrite",
+                    SecondaryButtonText = "Restore",
                     CloseButtonText = "Cancel",
                     XamlRoot = XamlRoot,
                 };
@@ -674,7 +674,6 @@ public sealed partial class MainPage : Page
             Title = "Cloud backup (Backblaze B2)",
             Content = new ScrollViewer { Content = form.Panel, MaxHeight = 460 },
             PrimaryButtonText = "Back up now",
-            SecondaryButtonText = "Restore from cloud",
             CloseButtonText = "Close",
             XamlRoot = XamlRoot,
         };
