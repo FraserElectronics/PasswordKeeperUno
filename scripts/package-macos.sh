@@ -50,38 +50,41 @@ make_icon() {
 }
 make_icon || echo "Warning: could not build the app icon; continuing without it."
 
+# Layout. macOS treats everything in Contents/MacOS (managed .dll files, data folders) as nested code,
+# and plain files cannot be signed that way. So only the main executable stays there; everything else
+# moves to Contents/Resources/app and is symlinked back. The whole runtime has to move together because
+# .NET resolves symlinks and then looks for its native libraries beside the app. Uno also looks for its
+# assets (icon and text fonts) in Contents/MacOS/Resources, so that is a link to the same folder.
+RES="$APP/Contents/Resources/app"; mkdir -p "$RES"
+while IFS= read -r item; do
+  [ "$item" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue
+  name="$(basename "$item")"
+  mv "$item" "$RES/$name"
+  ln -s "../Resources/app/$name" "$item"
+done < <(find "$APP/Contents/MacOS" -mindepth 1 -maxdepth 1)
+ln -s "../Resources/app" "$APP/Contents/MacOS/Resources"
+
 # Signing. Without SIGN_IDENTITY this is an ad-hoc signature that only runs on this Mac.
 # With SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" it is signed for distribution
 # (hardened runtime + entitlements), ready for notarization by scripts/release-macos.sh.
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   ENT="$ROOT/scripts/macos/entitlements.plist"
-  # macOS treats everything in Contents/MacOS (the managed .dll files, data folders) as nested code,
-  # and plain files cannot be signed that way. So only the main executable stays there; everything
-  # else moves to Contents/Resources/app and is symlinked back. The whole runtime has to move
-  # together because .NET resolves symlinks and then looks for its native libraries beside the app.
-  RES="$APP/Contents/Resources/app"; mkdir -p "$RES"
-  while IFS= read -r item; do
-    [ "$item" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue
-    name="$(basename "$item")"
-    mv "$item" "$RES/$name"
-    ln -s "../Resources/app/$name" "$item"
-  done < <(find "$APP/Contents/MacOS" -mindepth 1 -maxdepth 1)
-
-  # Sign every native binary (anywhere in the bundle) first, then the bundle itself.
-  echo "Signing native code"
-  while IFS= read -r f; do
-    [ "$f" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue   # main executable goes last
-    if file "$f" | grep -q "Mach-O"; then
-      codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
-    fi
-  done < <(find "$APP/Contents" -type f)
-  echo "Signing bundle"
-  codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
-  echo "Verifying bundle"
-  codesign --verify --strict --verbose=2 "$APP"
+  SIGN_ARGS=(--force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY")
 else
-  codesign --force --deep --sign - "$APP"
+  SIGN_ARGS=(--force --sign -)
 fi
+# Sign every native binary (anywhere in the bundle) first, the main executable and bundle last.
+echo "Signing native code"
+while IFS= read -r f; do
+  [ "$f" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue   # main executable goes last
+  if file "$f" | grep -q "Mach-O"; then
+    codesign "${SIGN_ARGS[@]}" "$f"
+  fi
+done < <(find "$APP/Contents" -type f)
+echo "Signing bundle"
+codesign "${SIGN_ARGS[@]}" "$APP"
+echo "Verifying bundle"
+codesign --verify --strict --verbose=2 "$APP"
 
 echo "Built: $APP"
 echo "Run it with: open \"$APP\""
