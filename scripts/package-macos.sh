@@ -54,7 +54,7 @@ make_icon || echo "Warning: could not build the app icon; continuing without it.
 # and plain files cannot be signed that way. So only the main executable stays there; everything else
 # moves to Contents/Resources/app and is symlinked back. The whole runtime has to move together because
 # .NET resolves symlinks and then looks for its native libraries beside the app. Uno also looks for its
-# assets (icon and text fonts) in Contents/MacOS/Resources, so that is a link to the same folder.
+# assets (icon and text fonts) in a Resources folder beside the app files, so links are made for that.
 RES="$APP/Contents/Resources/app"; mkdir -p "$RES"
 while IFS= read -r item; do
   [ "$item" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue
@@ -63,6 +63,14 @@ while IFS= read -r item; do
   ln -s "../Resources/app/$name" "$item"
 done < <(find "$APP/Contents/MacOS" -mindepth 1 -maxdepth 1)
 ln -s "../Resources/app" "$APP/Contents/MacOS/Resources"
+# .NET resolves the symlinks to Resources/app, and Uno then looks in Resources/app/Resources, so give it
+# links to the asset files and folders there too.
+mkdir -p "$RES/Resources"
+for entry in "$RES"/*; do
+  name="$(basename "$entry")"
+  case "$name" in Resources|*.dll|*.pdb|*.dylib) continue ;; esac
+  ln -s "../$name" "$RES/Resources/$name"
+done
 
 # Signing. Without SIGN_IDENTITY this is an ad-hoc signature that only runs on this Mac.
 # With SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" it is signed for distribution
