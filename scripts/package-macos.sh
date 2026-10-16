@@ -56,11 +56,12 @@ make_icon || echo "Warning: could not build the app icon; continuing without it.
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   ENT="$ROOT/scripts/macos/entitlements.plist"
   # macOS treats everything in Contents/MacOS (the managed .dll files, data folders) as nested code,
-  # and plain files cannot be signed that way. So only Mach-O files stay there; everything else
-  # moves to Contents/Resources/app and is symlinked back, where .NET still finds it.
+  # and plain files cannot be signed that way. So only the main executable stays there; everything
+  # else moves to Contents/Resources/app and is symlinked back. The whole runtime has to move
+  # together because .NET resolves symlinks and then looks for its native libraries beside the app.
   RES="$APP/Contents/Resources/app"; mkdir -p "$RES"
   while IFS= read -r item; do
-    if [ -f "$item" ] && [ ! -L "$item" ] && file "$item" | grep -q "Mach-O"; then continue; fi
+    [ "$item" = "$APP/Contents/MacOS/PasswordKeeper.App" ] && continue
     name="$(basename "$item")"
     mv "$item" "$RES/$name"
     ln -s "../Resources/app/$name" "$item"
