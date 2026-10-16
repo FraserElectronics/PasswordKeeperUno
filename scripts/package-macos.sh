@@ -50,9 +50,22 @@ make_icon() {
 }
 make_icon || echo "Warning: could not build the app icon; continuing without it."
 
-# Ad-hoc signature: lets it run on this Mac. Distribution to other Macs needs a Developer ID
-# certificate and notarization (see docs/PACKAGING.md).
-codesign --force --deep --sign - "$APP"
+# Signing. Without SIGN_IDENTITY this is an ad-hoc signature that only runs on this Mac.
+# With SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" it is signed for distribution
+# (hardened runtime + entitlements), ready for notarization by scripts/release-macos.sh.
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+  ENT="$ROOT/scripts/macos/entitlements.plist"
+  # Sign every Mach-O file inside-out first, then the bundle itself.
+  while IFS= read -r f; do
+    if file "$f" | grep -q "Mach-O"; then
+      codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
+    fi
+  done < <(find "$APP" -type f)
+  codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
+  codesign --verify --deep --strict --verbose=2 "$APP"
+else
+  codesign --force --deep --sign - "$APP"
+fi
 
 echo "Built: $APP"
 echo "Run it with: open \"$APP\""

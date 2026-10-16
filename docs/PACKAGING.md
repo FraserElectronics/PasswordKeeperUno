@@ -15,3 +15,12 @@ Running it on other people's Macs without warnings needs an Apple Developer ID c
 dotnet publish src/PasswordKeeper.App/PasswordKeeper.App/PasswordKeeper.App.csproj -c Release -p:OnlyTargetDesktop=true -f net10.0-desktop -r win-x64 --self-contained true -o artifacts/win-x64
 ```
 Run `PasswordKeeper.App.exe` from that folder.
+
+## macOS release (signed + notarized .dmg)
+One-off: create a "Developer ID Application" certificate in Xcode (Settings > Accounts > Manage Certificates),
+and store notary credentials: `xcrun notarytool store-credentials PK-NOTARY --apple-id <id> --team-id <TEAMID> --password <app-specific-password>`.
+Then:
+```
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" scripts/release-macos.sh
+```
+Output: `artifacts/PasswordKeeper-osx-arm64.dmg`.
