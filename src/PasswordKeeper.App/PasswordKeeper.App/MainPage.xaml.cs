@@ -706,6 +706,35 @@ public sealed partial class MainPage : Page
         if (saved) await RunBackupAsync(interactive: true);
     }
 
+    /// <summary>Restore while unlocked: uses the Backblaze details stored in this vault, or asks for them.</summary>
+    private async void OnRestoreInVaultClick(object sender, RoutedEventArgs e)
+    {
+        var saved = _session.Data?.CloudBackup;
+        if (saved is { IsComplete: true })
+        {
+            await RestoreCloudCopyAsync(saved);
+            return;
+        }
+        var form = new CloudForm(null, withAutoBackup: false,
+            "Enter your Backblaze details to replace this vault with the cloud copy.");
+        var dialog = new ContentDialog
+        {
+            Title = "Restore from cloud",
+            Content = new ScrollViewer { Content = form.Panel, MaxHeight = 460 },
+            PrimaryButtonText = "Restore",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot,
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            if (form.Read().IsComplete) return;
+            args.Cancel = true;
+            form.Error.Text = "Fill in the key ID, application key, bucket and file name.";
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await RestoreCloudCopyAsync(form.Read());
+    }
+
     private async void OnRestoreFromCloudClick(object sender, RoutedEventArgs e)
     {
         var form = new CloudForm(null, withAutoBackup: false,
