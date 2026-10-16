@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a self-contained PasswordKeeper.app for macOS (run on a Mac).
-# Usage: scripts/package-macos.sh [osx-arm64|osx-x64]
+# Usage: [CONFIG=Debug] scripts/package-macos.sh [osx-arm64|osx-x64]
 set -euo pipefail
 
 RID="${1:-osx-arm64}"
@@ -10,7 +10,7 @@ OUT="$ROOT/artifacts/macos-$RID"
 APP="$OUT/PasswordKeeper.app"
 
 rm -rf "$OUT"
-dotnet publish "$PROJ" -c Release -p:OnlyTargetDesktop=true -f net10.0-desktop -r "$RID" --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -o "$OUT/publish"
+dotnet publish "$PROJ" -c "${CONFIG:-Release}" -p:OnlyTargetDesktop=true -f net10.0-desktop -r "$RID" --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -o "$OUT/publish"
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp -R "$OUT/publish/." "$APP/Contents/MacOS/"
