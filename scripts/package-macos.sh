@@ -55,12 +55,11 @@ make_icon || echo "Warning: could not build the app icon; continuing without it.
 # (hardened runtime + entitlements), ready for notarization by scripts/release-macos.sh.
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   ENT="$ROOT/scripts/macos/entitlements.plist"
-  # Sign every Mach-O file inside-out first, then the bundle itself.
+  # Sign every file inside-out first (including managed .dll files, which macOS treats as
+  # nested code when they sit in Contents/MacOS), then the bundle itself.
   while IFS= read -r f; do
-    if file "$f" | grep -q "Mach-O"; then
-      codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
-    fi
-  done < <(find "$APP" -type f)
+    codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$f"
+  done < <(find "$APP/Contents" -type f ! -name Info.plist ! -path "*/Resources/*")
   codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$SIGN_IDENTITY" "$APP"
   codesign --verify --deep --strict --verbose=2 "$APP"
 else
